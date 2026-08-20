@@ -7,15 +7,12 @@ Uses simple token-based auth with UUID tokens stored in memory.
 
 import uuid
 from fastapi import APIRouter, HTTPException, Header
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from typing import Optional
 
 import database as db
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
-
-# In-memory token store (maps token -> user_id)
-_active_tokens: dict = {}
 
 
 class SignUpRequest(BaseModel):
@@ -43,7 +40,7 @@ def get_current_user_id(authorization: Optional[str] = Header(None)) -> Optional
     if not authorization:
         return None
     token = authorization.replace("Bearer ", "")
-    return _active_tokens.get(token)
+    return db.get_user_id_by_token(token)
 
 
 @router.post("/signup", response_model=AuthResponse)
@@ -52,7 +49,7 @@ async def signup(req: SignUpRequest):
     if not user:
         raise HTTPException(status_code=400, detail="Email already registered")
     token = str(uuid.uuid4())
-    _active_tokens[token] = user["id"]
+    db.create_session(token, user["id"])
     return AuthResponse(token=token, user=user)
 
 
@@ -62,7 +59,7 @@ async def signin(req: SignInRequest):
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = str(uuid.uuid4())
-    _active_tokens[token] = user["id"]
+    db.create_session(token, user["id"])
     return AuthResponse(token=token, user=user)
 
 
@@ -80,6 +77,5 @@ async def get_me(authorization: Optional[str] = Header(None)):
 @router.post("/signout")
 async def signout(authorization: Optional[str] = Header(None)):
     if authorization:
-        token = authorization.replace("Bearer ", "")
-        _active_tokens.pop(token, None)
+        db.delete_session(authorization.replace("Bearer ", ""))
     return {"status": "signed_out"}

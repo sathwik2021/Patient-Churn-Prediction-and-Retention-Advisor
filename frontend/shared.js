@@ -6,7 +6,7 @@ const LEGACY_COHORT_STORAGE_KEY = COHORT_STORAGE_KEY;
 const api = (path, options = {}) => fetch(`${API_BASE}${path}`, {
   ...options,
   headers: {
-    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(options.body && !(options.body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
     ...(options.headers || {}),
     Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`
   }
@@ -258,11 +258,13 @@ function loadSelectedPatient() {
   try {
     const patient = JSON.parse(raw);
     const attributes = patient.attributes || {};
+    const norm = (value) => String(value ?? '').toLowerCase().replace(/[\s_-]/g, '');
     const fieldMap = { age: 'Age', gender: 'Gender', state: 'State', specialty: 'Specialty', insurance_type: 'Insurance_Type', tenure_months: 'Tenure_Months', referrals_made: 'Referrals_Made', visits_last_year: 'Visits_Last_Year', missed_appointments: 'Missed_Appointments', days_since_last_visit: 'Days_Since_Last_Visit', overall_satisfaction: 'Overall_Satisfaction', wait_time_satisfaction: 'Wait_Time_Satisfaction', staff_satisfaction: 'Staff_Satisfaction', provider_rating: 'Provider_Rating', avg_out_of_pocket_cost: 'Avg_Out_Of_Pocket_Cost', billing_issues: 'Billing_Issues', portal_usage: 'Portal_Usage', distance_to_facility: 'Distance_To_Facility_Miles' };
     Object.entries(fieldMap).forEach(([field, column]) => {
-      if (attributes[column] !== undefined) {
+      const match = Object.keys(attributes).find((key) => norm(key) === norm(column));
+      if (match !== undefined && attributes[match] !== undefined) {
         const input = document.querySelector(`[name="${field}"]`);
-        if (input) input.value = attributes[column];
+        if (input) input.value = attributes[match];
       }
     });
     localStorage.removeItem('patient_churn_selected_patient');

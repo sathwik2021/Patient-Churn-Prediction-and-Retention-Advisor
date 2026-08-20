@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 import os
 
 from models.predictor import predictor
@@ -36,7 +36,6 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -52,6 +51,14 @@ if os.path.exists(frontend_dir):
     app.mount("/frontend", StaticFiles(directory=frontend_dir), name="frontend")
 elif os.path.exists(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_file = os.path.join(frontend_dir, "icon.svg")
+    if os.path.exists(favicon_file):
+        return Response(content=open(favicon_file, "rb").read(), media_type="image/svg+xml")
+    return Response(status_code=204)
+
 
 @app.get("/")
 async def serve_index():

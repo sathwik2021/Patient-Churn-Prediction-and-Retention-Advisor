@@ -30,6 +30,7 @@ class ChurnPredictor:
         self.reason_encoder = None
         self.advice_map = {}
         self.best_thr = 0.37
+        self.auc = 0.0
         self._loaded = False
 
     def load(self, model_dir: str = None):
@@ -49,6 +50,9 @@ class ChurnPredictor:
         thr_path = os.path.join(model_dir, "best_thr.pkl")
         if os.path.exists(thr_path):
             self.best_thr = joblib.load(thr_path)
+        auc_path = os.path.join(model_dir, "auc.pkl")
+        if os.path.exists(auc_path):
+            self.auc = joblib.load(auc_path)
         self._loaded = True
 
     @property

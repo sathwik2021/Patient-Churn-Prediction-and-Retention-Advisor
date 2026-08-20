@@ -135,6 +135,7 @@ def train():
     joblib.dump(reason_encoder, os.path.join(ml_model_dir, "reason_encoder.pkl"))
     joblib.dump(advice_map, os.path.join(ml_model_dir, "advice_map.pkl"))
     joblib.dump(best_thr, os.path.join(ml_model_dir, "best_thr.pkl"))
+    joblib.dump(auc, os.path.join(ml_model_dir, "auc.pkl"))
 
     print(f"\n[OK] All XGBoost artifacts successfully saved to: {ml_model_dir}")
 

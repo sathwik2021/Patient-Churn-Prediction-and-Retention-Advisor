@@ -43,7 +43,7 @@ async def health_check():
         status="healthy" if predictor.is_loaded else "unhealthy",
         model_loaded=predictor.is_loaded,
         model_type="XGBoost + Multi-Class Reason Classifier",
-        auc=0.6129,
+        auc=predictor.auc,
     )
 
 

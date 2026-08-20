@@ -6,6 +6,7 @@ Manages users, predictions, and cohort datasets via SQLAlchemy & SQLite.
 
 import os
 import hashlib
+import secrets
 import uuid
 from datetime import timezone
 from sqlalchemy import create_engine, Column, String, Integer, Float, Text, ForeignKey, DateTime
@@ -60,13 +61,62 @@ class CohortDataset(Base):
     created_at = Column(DateTime, server_default=func.now())
 
 
+class Session(Base):
+    __tablename__ = "sessions"
+    token = Column(String, primary_key=True)
+    user_id = Column(String, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, server_default=func.now())
+
+
 def init_db():
     """Initialize database tables."""
     Base.metadata.create_all(bind=engine)
 
 
+def _pbkdf2(password: str, salt: str) -> str:
+    digest = hashlib.pbkdf2_hmac(
+        "sha256", password.encode(), bytes.fromhex(salt), 100_000
+    ).hex()
+    return f"{salt}${digest}"
+
+
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    salt = secrets.token_hex(16)
+    return _pbkdf2(password, salt)
+
+
+def verify_password(password: str, stored: str) -> bool:
+    if "$" in stored:
+        return _pbkdf2(password, stored.split("$", 1)[0]) == stored
+    # Legacy unsalted SHA-256 hashes from older versions.
+    return hashlib.sha256(password.encode()).hexdigest() == stored
+
+
+def create_session(token: str, user_id: str):
+    db = SessionLocal()
+    try:
+        db.add(Session(token=token, user_id=user_id))
+        db.commit()
+    finally:
+        db.close()
+
+
+def get_user_id_by_token(token: str):
+    db = SessionLocal()
+    try:
+        session = db.query(Session).filter(Session.token == token).first()
+        return session.user_id if session else None
+    finally:
+        db.close()
+
+
+def delete_session(token: str):
+    db = SessionLocal()
+    try:
+        db.query(Session).filter(Session.token == token).delete()
+        db.commit()
+    finally:
+        db.close()
 
 
 def create_user(name: str, email: str, password: str) -> dict:
@@ -89,11 +139,10 @@ def create_user(name: str, email: str, password: str) -> dict:
 
 
 def authenticate_user(email: str, password: str) -> dict:
-    pw_hash = hash_password(password)
     db = SessionLocal()
     try:
-        user = db.query(User).filter(User.email == email, User.password_hash == pw_hash).first()
-        if user:
+        user = db.query(User).filter(User.email == email).first()
+        if user and verify_password(password, user.password_hash):
             return {"id": user.id, "name": user.name, "email": user.email}
         return None
     finally:
